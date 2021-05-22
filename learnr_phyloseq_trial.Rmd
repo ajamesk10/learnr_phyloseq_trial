@@ -1,0 +1,275 @@
+---
+title: "Tutorial"
+output: learnr::tutorial
+runtime: shiny_prerendered
+---
+
+```{r setup, include=FALSE}
+library(learnr)
+knitr::opts_chunk$set(echo = FALSE)
+
+library(here)
+library(tidyverse)
+library(phyloseq)
+library(ggplot2)
+
+count <- read.table(as.matrix(here("seqtab-nochim_notaxa_physeq_copy.txt")))
+sampleinfo <- read.table(here("sampleinfo_physeq_copy.txt"), header=TRUE, row.names=1, check.names=F)
+taxa <- as.matrix(read.table(here("taxa_copy.txt")))
+
+#### Creating objects to use later
+OTU = otu_table(count, taxa_are_rows=TRUE)
+TAX = tax_table(taxa)
+SAM = sample_data(sampleinfo)
+
+# Let's call our phyloseq object: physeq
+physeq = phyloseq(OTU,TAX,SAM)
+physeq.prop <- transform_sample_counts(physeq, function(otu) otu/sum(otu))
+top20 <- names(sort(taxa_sums(physeq.prop), decreasing=TRUE))[1:20]
+ps.top20 <- prune_taxa(top20, physeq.prop)
+```
+
+
+## Meet the data
+
+### Research Paper
+
+```{r image1, echo = FALSE, out.width = "40%"}
+knitr::include_graphics(here("images/paper_header.png"))
+```
+
+### The Data
+
+First, what are some things you'd want to know about the data?
+
+What is the data that we're looking at? Where does it come from? Who collected it?
+
+```{r image2, echo = FALSE, out.width = "70%", fig.cap = "The Centralia, Pennsylvania, mine fire has dramatically impacted the surface environment. (A) Aerial view of the Centralia Mine Fire in July, 2007. Bare ground indicates mine fire-affected sites. The location from which soil samples were collected is indicated by the arrow. (B) Land collapses have caused route 61 in Centralia to crack and buckle, while steam filled with combustion products can be seen rising from the fire below. (C) Elemental sulfur crystals that precipitate at the surface support sulfur-cycling bacteria."}
+knitr::include_graphics(here("images/sample_location.png"))
+```
+
+### What do we know about our samples?
+
+**have students create this table**
+
+```{r image3, echo = FALSE, out.width = "70%"}
+knitr::include_graphics(here("images/sample_table.png"))
+```
+
+### Quiz
+
+Some questions to check your understanding of the samples (update based on data I use):
+
+```{r quiz1}
+quiz(
+  question("What is true about the most acidic sample, relative to the others?",
+    answer("has the coolest soil temps"),
+    answer("has the lowest sulfate concentrations"),
+    answer("has the highest soil temps", correct = TRUE),
+    answer("has the lowest ammonium concentrations")
+  ),
+  question("Which of the R packages listed below are used to create plots?",
+    answer("phyloseq"),
+    answer("tools"),
+    answer("stats"),
+    answer("ggplot2", correct = TRUE)
+  )
+)
+```
+
+
+### Constructing a Hypothesis
+
+**Maybe add a table of microbes that shows things we would have previously talked about: e.g. temperature requirements / metabolism so that students can build a hypothsis at this stage about what microbes they might find in each sample.**
+
+## Preparing the Data
+
+### Creating A Phyloseq Object
+
+In order to start testing our hypotheses, we need to get the data into a format that will enable us to visualize the microbes in these samples.
+
+To do this, we need to create what is called a `phyloseq object`. This is a large file that combines our pre-loaded data tables that include:
+
+1) Information about our samples: `sampleinfo`
+2) The number of sequences per OTU in each of our samples: `count`
+3) And a taxonomy file that tells us what taxonomy each of our OTUs belongs to: `taxa`
+
+By combining these into a single phyloseq object, we'll be able to explore our data through a package called `phyloseq`.
+
+In the following code, I've turned our data tables into phyloseq components that we'll combine into an object in the next step.
+
+```{r physeq-object1, exercise=TRUE, exercise.lines = 8}
+
+OTU = otu_table(count, taxa_are_rows=TRUE)
+TAX = tax_table(taxa)
+SAM = sample_data(sampleinfo)
+
+physeq = phyloseq(OTU, TAX, SAM)
+```
+
+## Visualizations
+
+Now that we've checked out the data, developed a set of hypotheses, and wrangled our data into a useable format, we can start to explore!
+
+**Where this goes depends on what data I can get my hands on**
+
+### Distribution of Read Counts 
+
+As a first analysis, let's look at the distribution of read counts from our samples. 
+
+Run the following code:
+
+```{r histogram, exercise=TRUE, exercise.lines = 12}
+
+# make a data frame with a column for the read counts of each sample
+sample_sum_df <- data.frame(sum = sample_sums(physeq))
+
+# Histograph of sample read counts
+ggplot(sample_sum_df, aes(x = sum)) + 
+  geom_histogram(color = "black", fill = "red", binwidth = 2500) +
+  ggtitle("Distribution of sample sequencing depth") + 
+  xlab("Read counts") +
+  theme(axis.title.y = element_blank())
+```
+
+**Chat about what you see in the histograph - are sequences evenly distributed across samples? Or do some samples have very few sequences, and others quite a lot? What might this mean for our downstream analyses?**
+
+### Summary of the number of reads per sample
+
+The following code calculates the mean (`smean`) and max (`smax`) number of reads per sample:
+
+```{r mean_max, exercise=TRUE, exercise.lines = 5}
+
+smean <- mean(sample_sums(physeq))
+smax <- max(sample_sums(physeq))
+```
+
+**Practice: How would you alter the following code to find the minimum number of reads per sample:**
+
+```{r print-min, exercise=TRUE, exercise.lines = 5}
+
+smin <- sample_sums
+```
+
+```{r print-min-hint}
+smin <- min(sample_sums())
+```
+
+### Barplot
+
+Plot barplot --> then have students think about how similar/dissimilar samples are based on microbe community -->then use living room analogy to think about what nMDS might look like.
+
+"For transforming abundance values by an arbitrary R function, phyloseq includes the transform_sample_counts function. It takes as arguments a phyloseq-object and an R function, and returns a phyloseq-object in which the abundance values have been transformed, sample-wise, according to the transformations specified by the function. For example, the following command transforms GP.chl abundance counts to fractional abundance."
+
+```{r barplot_1, exercise=TRUE, exercise.lines = 15}
+
+# First, need to convert our sequence counts to a proportion so that we're looking at relative abundance
+physeq.prop <- transform_sample_counts(physeq, function(otu) otu/sum(otu))
+
+# Plot simple stacked barplot of top 20 most abundant taxa at phylum level
+theme_set(theme_bw())
+top20 <- names(sort(taxa_sums(physeq.prop), decreasing=TRUE))[1:20]
+ps.top20 <- prune_taxa(top20, physeq.prop)
+plot_bar(ps.top20)
+```
+
+Next, add color to your barplot using `fill` to show the number of OTUs that belong to each Kingdom in the samples:
+
+```{r barplot_2, exercise=TRUE, exercise.lines = 5}
+
+plot_bar(ps.top20, fill="Kingdom")
+```
+
+What do you notice? Do all sequences belong to the same Kingdom? Does this make sense? Why or why not?
+
+Now, keep the same fill color, and group the samples together by the sample type variable. This would be the XXX from which the sample was taken and sequenced.
+
+```{r barplot_3, exercise=TRUE, exercise.lines = 5}
+
+plot_bar(ps.top20, fill="Kingdom", x="sample_type")
+```
+
+Next, try using `facet_wrap` to organize the samples by experiment:
+
+```{r barplot_4, exercise=TRUE, exercise.lines = 5}
+
+plot_bar(ps.top20, x="sample_type", fill="Kingdom") + facet_wrap(~exp, scales="fixed")
+```
+
+Practice: change the following code to plot sequence abundance by `Class`:
+
+```{r barplot_5, exercise=TRUE, exercise.eval=TRUE, exercise.lines = 5}
+
+plot_bar(ps.top20, x="sample_type", fill="Kingdom") + facet_wrap(~exp, scales="fixed")
+```
+
+```{r barplot_5-hint}
+plot_bar(ps.top20, x="sample_type", fill="Class") + facet_wrap(~exp, scales="fixed")
+```
+
+Check out gradethis
+
+Barplot helpful tutorial:
+https://joey711.github.io/phyloseq/plot_bar-examples.html
+
+
+### Exercise 
+
+*Here's a simple exercise with an empty code chunk provided for entering the answer.*
+
+Write the R code required to add two plus two:
+
+```{r two-plus-two, exercise=TRUE}
+
+```
+
+### Exercise with Code
+
+*Here's an exercise with some prepopulated code as well as `exercise.lines = 5` to provide a bit more initial room to work.*
+
+Now write a function that adds any two numbers and then call it:
+
+```{r add-function, exercise=TRUE, exercise.lines = 5}
+add <- function() {
+  
+}
+```
+
+## Topic 2
+
+### Exercise with Hint
+
+*Here's an exercise where the chunk is pre-evaulated via the `exercise.eval` option (so the user can see the default output we'd like them to customize). We also add a "hint" to the correct solution via the chunk immediate below labeled `print-limit-hint`.*
+
+Modify the following code to limit the number of rows printed to 5:
+
+```{r print-limit, exercise=TRUE, exercise.eval=TRUE}
+mtcars
+```
+
+```{r print-limit-hint}
+head(mtcars)
+```
+
+### Quiz
+
+*You can include any number of single or multiple choice questions as a quiz. Use the `question` function to define a question and the `quiz` function for grouping multiple questions together.*
+
+Some questions to verify that you understand the purposes of various base and recommended R packages:
+
+```{r quiz}
+quiz(
+  question("Which package contains functions for installing other R packages?",
+    answer("base"),
+    answer("tools"),
+    answer("utils", correct = TRUE),
+    answer("codetools")
+  ),
+  question("Which of the R packages listed below are used to create plots?",
+    answer("lattice", correct = TRUE),
+    answer("tools"),
+    answer("stats"),
+    answer("grid", correct = TRUE)
+  )
+)
+```
