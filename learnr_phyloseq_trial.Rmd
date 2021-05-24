@@ -13,6 +13,9 @@ library(tidyverse)
 library(phyloseq)
 library(ggplot2)
 
+library(BiocManager)
+options(repos = BiocManager::repositories())
+
 count <- read.table(as.matrix(here("seqtab-nochim_notaxa_physeq_copy.txt")))
 sampleinfo <- read.table(here("sampleinfo_physeq_copy.txt"), header=TRUE, row.names=1, check.names=F)
 taxa <- as.matrix(read.table(here("taxa_copy.txt")))
@@ -22,63 +25,140 @@ OTU = otu_table(count, taxa_are_rows=TRUE)
 TAX = tax_table(taxa)
 SAM = sample_data(sampleinfo)
 
-# Let's call our phyloseq object: physeq
 physeq = phyloseq(OTU,TAX,SAM)
 physeq.prop <- transform_sample_counts(physeq, function(otu) otu/sum(otu))
 top20 <- names(sort(taxa_sums(physeq.prop), decreasing=TRUE))[1:20]
 ps.top20 <- prune_taxa(top20, physeq.prop)
+
+sample_sum_df <- data.frame(sum = sample_sums(physeq))
+
+# Create table of environmental variables
+tab_1 <- read_csv(here("table_1.csv"))
+
+#Check out gradethis
+#Barplot helpful tutorial:
+#https://joey711.github.io/phyloseq/plot_bar-examples.html
 ```
 
 
-## Meet the data
+## Introduction
 
-### Research Paper
+This work flow was developed using data from: 
 
-```{r image1, echo = FALSE, out.width = "40%"}
+Tobin & Shade (2018). *A town on fire! Integrating 16S rRNA gene amplicon analyses into an undergraduate microbiology lecture class.* FEMS Microbiology Letters.
+
+```{r image1, echo = FALSE, out.width = "90%"}
 knitr::include_graphics(here("images/paper_header.png"))
 ```
 
-### The Data
+### Working through this tutorial
 
-First, what are some things you'd want to know about the data?
+This tutorial is built to help us explore how microbial communities are impacted by extreme environments.
 
-What is the data that we're looking at? Where does it come from? Who collected it?
+You do **not** need to know R to use this tutorial and we will work through the first half in class, together.
 
-```{r image2, echo = FALSE, out.width = "70%", fig.cap = "The Centralia, Pennsylvania, mine fire has dramatically impacted the surface environment. (A) Aerial view of the Centralia Mine Fire in July, 2007. Bare ground indicates mine fire-affected sites. The location from which soil samples were collected is indicated by the arrow. (B) Land collapses have caused route 61 in Centralia to crack and buckle, while steam filled with combustion products can be seen rising from the fire below. (C) Elemental sulfur crystals that precipitate at the surface support sulfur-cycling bacteria."}
+This tutorial provides opportunities to run example code and to practice coding exercises. By the end of the tutorial you will:
+
+1. have conducted an analysis of soil microbial communities!
+
+2. gain an introduction to coding and using bioinformatic packages in R!
+
+**Quizzes** As always, quizzes should be used after class to check your understanding of the course material. These, and the tutorials, will be available throughout the quarter.
+
+## The Data
+
+### What might we want to know about the data?
+
+What is the data that we're looking at? Where does it come from? Who collected it? What questions motivated this research?
+
+What else might you want to know?
+
+### Sequencing data
+
+Over the last few weeks, we've dug into how researchers have figured out how to extract DNA from microbes from various environments. We talked about collecting microbes from the ocean, soils, and even the atmosphere!
+
+We then discussed how a particular method --**16S rRNA gene Illumina sequencing**-- enabled scientists to sequence and amplify a particular segment of microbial DNA that enables us to explore WHO the microbes are in these samples, and their **relative abundance.**
+
+### The Samples
+
+Today, we're going to explore a set of samples that were collected by researchers from XXX at the site of the **Centralia mine-fire.**
+
+Number of samples: 3 `S1`, `S2`, and `S3`
+Method of extraction: MoBio Powersoil kit
+Primers used: `8F`
+
+**Check out Fig. 1 and based on our discussion in class, think about where YOU would have collected the 3 samples from:**
+
+```{r image2, echo = FALSE, out.width = "70%"}
 knitr::include_graphics(here("images/sample_location.png"))
 ```
 
-### What do we know about our samples?
+Fig. 1: The Centralia, Pennsylvania, mine fire has dramatically impacted the surface environment. (A) Aerial view of the Centralia Mine Fire in July, 2007. Bare ground indicates mine fire-affected sites. The location from which soil samples were collected is indicated by the arrow. (B) Land collapses have caused route 61 in Centralia to crack and buckle, while steam filled with combustion products can be seen rising from the fire below. (C) Elemental sulfur crystals that precipitate at the surface support sulfur-cycling bacteria.
 
-**have students create this table**
+### How do environmental conditions vary across the samples?
 
-```{r image3, echo = FALSE, out.width = "70%"}
-knitr::include_graphics(here("images/sample_table.png"))
+**Run the following code and discuss how the environmental conditions vary across the 3 samples:**
+
+The following code assigns the fils `table_1.csv` that is located in a directory for this tutorial to `tab_1`.
+
+```{r table1, exercise=TRUE, exercise.lines = 5}
+
+tab_1 <- read_csv(here("table_1.csv"))
+
 ```
 
-### Quiz
+**Practice: How do you visualize the table that you just created? Input code below and click 'Run Code' to visualize the table. To receive a hint, click 'Hint'**
 
-Some questions to check your understanding of the samples (update based on data I use):
+Soil Tempearture is measured in degrees Celsius (˚C), while Total sulfur, sulfate, ammonium, and nitrate are all measured in mg/g.
 
-```{r quiz1}
+```{r table2,exercise=TRUE, exercise.lines = 5}
+
+```
+
+```{r table2-hint}
+tab_1
+```
+
+
+### Check your understanding
+
+The following questions are to check your understanding of the material we cover in class. These should be completed after class and will be available throughout the quarter (along with the tutorials).
+
+```{r quiz2}
 quiz(
   question("What is true about the most acidic sample, relative to the others?",
-    answer("has the coolest soil temps"),
+    answer("has the coldest soil temps"),
     answer("has the lowest sulfate concentrations"),
     answer("has the highest soil temps", correct = TRUE),
     answer("has the lowest ammonium concentrations")
   ),
-  question("Which of the R packages listed below are used to create plots?",
-    answer("phyloseq"),
-    answer("tools"),
-    answer("stats"),
-    answer("ggplot2", correct = TRUE)
+  question("What is true about the Centralia mine-fire?",
+    answer("The fire had no impact on the soil environment"),
+    answer("Centralia is still home to a large population of people"),
+    answer("The fire altered the thermal and chemical soil environment"),
+    answer("The fire was extinguished the same year it started", correct = TRUE)
   )
 )
 ```
 
 
-### Constructing a Hypothesis
+```{r quiz1}
+quiz(
+  question("Why does sequencing the 16S rRNA gene work well?",
+    answer("It's exactly the same in all bacteria"),
+    answer("All organisms have the 16S rRNA gene"),
+    answer("Contains conserved and hypervariable regions", correct = TRUE),
+    answer("I'm not sure...")
+  ),
+  question("Sequencing the 16S rRNA gene provides direct information about bacterial and archael metabolism?",
+    answer("True"),
+    answer("False", correct = TRUE)
+  )
+)
+```
+
+
+## Constructing a Hypothesis
 
 **Maybe add a table of microbes that shows things we would have previously talked about: e.g. temperature requirements / metabolism so that students can build a hypothsis at this stage about what microbes they might find in each sample.**
 
@@ -86,7 +166,7 @@ quiz(
 
 ### Creating A Phyloseq Object
 
-In order to start testing our hypotheses, we need to get the data into a format that will enable us to visualize the microbes in these samples.
+To start testing our hypotheses, we need to get the data into a format that will enable us to visualize who the microbes are in each of the samples.
 
 To do this, we need to create what is called a `phyloseq object`. This is a large file that combines our pre-loaded data tables that include:
 
@@ -103,6 +183,8 @@ In the following code, I've turned our data tables into phyloseq components that
 OTU = otu_table(count, taxa_are_rows=TRUE)
 TAX = tax_table(taxa)
 SAM = sample_data(sampleinfo)
+
+# Combine OTU, TAX, and SAM into a phyloseq object called physeq:
 
 physeq = phyloseq(OTU, TAX, SAM)
 ```
@@ -207,69 +289,3 @@ plot_bar(ps.top20, x="sample_type", fill="Kingdom") + facet_wrap(~exp, scales="f
 plot_bar(ps.top20, x="sample_type", fill="Class") + facet_wrap(~exp, scales="fixed")
 ```
 
-Check out gradethis
-
-Barplot helpful tutorial:
-https://joey711.github.io/phyloseq/plot_bar-examples.html
-
-
-### Exercise 
-
-*Here's a simple exercise with an empty code chunk provided for entering the answer.*
-
-Write the R code required to add two plus two:
-
-```{r two-plus-two, exercise=TRUE}
-
-```
-
-### Exercise with Code
-
-*Here's an exercise with some prepopulated code as well as `exercise.lines = 5` to provide a bit more initial room to work.*
-
-Now write a function that adds any two numbers and then call it:
-
-```{r add-function, exercise=TRUE, exercise.lines = 5}
-add <- function() {
-  
-}
-```
-
-## Topic 2
-
-### Exercise with Hint
-
-*Here's an exercise where the chunk is pre-evaulated via the `exercise.eval` option (so the user can see the default output we'd like them to customize). We also add a "hint" to the correct solution via the chunk immediate below labeled `print-limit-hint`.*
-
-Modify the following code to limit the number of rows printed to 5:
-
-```{r print-limit, exercise=TRUE, exercise.eval=TRUE}
-mtcars
-```
-
-```{r print-limit-hint}
-head(mtcars)
-```
-
-### Quiz
-
-*You can include any number of single or multiple choice questions as a quiz. Use the `question` function to define a question and the `quiz` function for grouping multiple questions together.*
-
-Some questions to verify that you understand the purposes of various base and recommended R packages:
-
-```{r quiz}
-quiz(
-  question("Which package contains functions for installing other R packages?",
-    answer("base"),
-    answer("tools"),
-    answer("utils", correct = TRUE),
-    answer("codetools")
-  ),
-  question("Which of the R packages listed below are used to create plots?",
-    answer("lattice", correct = TRUE),
-    answer("tools"),
-    answer("stats"),
-    answer("grid", correct = TRUE)
-  )
-)
-```
